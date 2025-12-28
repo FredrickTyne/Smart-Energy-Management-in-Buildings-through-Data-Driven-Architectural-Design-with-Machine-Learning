@@ -150,54 +150,70 @@ if predict_btn:
             std_utci_val = pred_original[0][1]
             atec_val = pred_original[0][2]
 
-            # --- 结果展示区 ---
+# --- 结果展示区 (视觉优化版) ---
             st.subheader("📊 Simulation Results")
             col1, col2, col3 = st.columns(3)
 
-            # UTCI (范围 32.3 - 32.8) -> 这是一个极热的环境
+            # --- 1. UTCI (热舒适度) ---
+            # 训练集均值约为 32.55，我们以此为基准
+            baseline_utci = 32.55
+            delta_utci = utci_val - baseline_utci
+            
             with col1:
-                # 调整了阈值，因为数据本身就在 32 以上
-                if utci_val > 32.6:
-                    status_msg = "🔥 Extreme Heat"
-                    status_color = "inverse"
+                # 颜色逻辑
+                if utci_val > 34.0:
+                    status_msg = "🔥 Extreme"
+                    val_color = "inverse" # 红
+                elif utci_val > 32.8:
+                    status_msg = "🟠 High"
+                    val_color = "normal"
                 else:
-                    status_msg = "🟠 High Heat"
-                    status_color = "normal"
+                    status_msg = "🟢 Optimized"
+                    val_color = "normal" # 绿/黑
                 
                 st.metric(
                     label="🌡️ aveUTCI (Comfort)",
-                    value=f"{utci_val:.4f} °C", # 增加小数位以便看到变化
-                    delta=status_msg,
-                    delta_color=status_color
+                    value=f"{utci_val:.3f} °C", 
+                    delta=f"{delta_utci:+.3f} vs Avg", # 显示与平均值的差异，这个数会跳动
+                    delta_color="inverse" # 红色表示比平均热，绿色表示比平均冷
                 )
-                # 进度条基于 min/max 归一化
-                st.progress((utci_val - 32.0) / 1.5)
+                
+                # 【视觉放大技巧】：
+                # 既然值在 32-37 之间，我们把进度条的 0% 设为 32度，100% 设为 37度
+                # 这样 0.5 度的变化在进度条上就是 10% 的长度，肉眼可见！
+                normalized_score = (utci_val - 32.0) / (37.0 - 32.0)
+                # 限制在 0-1 之间
+                progress_val = min(max(normalized_score, 0.0), 1.0)
+                st.progress(progress_val)
+                st.caption("Scale: 32°C (Left) ──────── 37°C (Right)")
 
-            # stdUTCI
+            # --- 2. stdUTCI (均匀性) ---
             with col2:
                 st.metric(
-                    label="📉 stdUTCI (Variation)",
-                    value=f"{std_utci_val:.4f}", # 增加小数位
-                    help="Lower is better (more uniform)"
+                    label="📉 stdUTCI (Uniformity)",
+                    value=f"{std_utci_val:.3f}",
+                    help="Lower value means more uniform temperature distribution."
                 )
-                st.progress(std_utci_val / 6.0)
+                # 假设范围 4.0 - 5.0
+                st.progress(min(max((std_utci_val - 4.0), 0.0), 1.0))
+                st.caption("Scale: 4.0 (Uniform) ────── 5.0 (Uneven)")
 
-            # ATEC (范围 111 - 113)
+            # --- 3. ATEC (能耗) ---
+            # 训练集均值 112.8
+            baseline_atec = 112.8
+            delta_atec = atec_val - baseline_atec
+            
             with col3:
-                if atec_val > 113.0:
-                    e_msg = "⚠️ High Energy"
-                    e_color = "inverse"
-                else:
-                    e_msg = "✅ Efficient"
-                    e_color = "normal"
-
                 st.metric(
                     label="⚡ ATEC (Energy)",
-                    value=f"{atec_val:.4f}", # 增加小数位
-                    delta=e_msg,
-                    delta_color=e_color
+                    value=f"{atec_val:.2f}",
+                    delta=f"{delta_atec:+.2f} vs Avg",
+                    delta_color="inverse"
                 )
-                st.progress((atec_val - 110) / 5.0)
+                # 假设范围 110 - 115
+                prog_atec = (atec_val - 110.0) / 5.0
+                st.progress(min(max(prog_atec, 0.0), 1.0))
+                st.caption("Scale: 110 (Low) ──────── 115 (High)")
 
             # --- 调试信息 (可选，如果不放心可以取消注释) ---
             # st.write("Debug - Raw Input:", input_df)
@@ -237,3 +253,4 @@ else:
         
         *Even small changes in the decimal points represent significant physical impacts in this context.*
         """)
+

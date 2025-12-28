@@ -66,26 +66,30 @@ model, scaler_x, scaler_y = load_toolkit()
 # ==========================================
 with st.sidebar:
     st.title("🎛️ Design Parameters")
-    st.markdown("Adjust the architectural parameters below to simulate performance.")
-    st.markdown("---")
-
-    # ⚠️【重要】：请根据您 df.columns 的实际特征名称和顺序修改这里
-    # 这里的名字必须和您训练时的特征名字一模一样
+    st.markdown("Adjust parameters to simulate:")
     
-    # 1. 密度与形态
-    st.subheader("Morphology")
-    FAR = st.slider('Floor Area Ratio (FAR)', 0.5, 8.0, 2.5, help="Building density")
-    BuildingCov = st.slider('Building Coverage Ratio', 0.1, 0.9, 0.4)
-    AveHeight = st.slider('Average Height (m)', 10.0, 150.0, 45.0)
+    # 分组 1: 形态与密度 (Morphology)
+    st.subheader("1. Morphology & Density")
+    FAR = st.slider('FAR (Floor Area Ratio)', 0.0, 10.0, 2.5)
+    BCR = st.slider('BCR (Building Coverage)', 0.0, 1.0, 0.4)
+    OSR = st.slider('OSR (Open Space Ratio)', 0.0, 1.0, 0.3)
+    AH = st.slider('AH (Ave Height)', 0.0, 100.0, 30.0)
+    SD = st.slider('SD (Standard Deviation of Height)', 0.0, 50.0, 10.0)
     
-    # 2. 开放度与朝向
-    st.subheader("Openness & Climate")
-    SVF = st.slider('Sky View Factor (SVF)', 0.1, 1.0, 0.5, help="Visibility of the sky")
-    Orientation = st.selectbox('Street Orientation', [0, 45, 90, 135], index=2, help="0=N-S, 90=E-W")
+    # 分组 2: 街道与朝向 (Street & Orientation)
+    st.subheader("2. Street & Orientation")
+    OR = st.slider('OR (Orientation)', 0.0, 180.0, 45.0, help="Street Orientation in degrees")
+    SVF = st.slider('SVF (Sky View Factor)', 0.0, 1.0, 0.5)
+    AS = st.slider('AS (Aspect Ratio)', 0.0, 5.0, 1.5)
     
-    # 3. 绿化与反照率 (如果有这些特征的话，没有请删除)
-    # GreenRatio = st.slider('Greenery Ratio', 0.0, 1.0, 0.3)
-    # Albedo = st.slider('Surface Albedo', 0.1, 0.8, 0.3)
+    # 分组 3: 建筑表面与其他 (Facade & Others)
+    st.subheader("3. Facade & Advanced Metrics")
+    AAR = st.slider('AAR (Ave Aspect Ratio)', 0.0, 5.0, 1.0)
+    xAAR = st.slider('xAAR (Aspect Ratio X)', 0.0, 5.0, 1.0)
+    yAAR = st.slider('yAAR (Aspect Ratio Y)', 0.0, 5.0, 1.0)
+    BESA = st.slider('BESA (Building Energy Surface)', 0.0, 5000.0, 1000.0)
+    SF = st.slider('SF (Shape Factor)', 0.0, 1.0, 0.5)
+    APR = st.slider('APR (Area Perimeter Ratio)', 0.0, 50.0, 10.0)
 
     st.markdown("---")
     predict_btn = st.button("🚀 Run Simulation")
@@ -106,15 +110,22 @@ if model is None:
     st.stop()
 
 # 收集输入数据
-# ⚠️【重要】：这里的 key (e.g., 'FAR') 必须和上面 slider 的变量名对应，且顺序必须与训练集一致！
+# ⚠️【重要】：顺序必须严格对应 X_train 的列顺序！
 input_data = {
     'FAR': FAR,
-    'BuildingCov': BuildingCov,
-    'AveHeight': AveHeight,
+    'BCR': BCR,
+    'OSR': OSR,
+    'AS': AS,
+    'AH': AH,
+    'OR': OR,
+    'SD': SD,
     'SVF': SVF,
-    'Orientation': Orientation,
-    # 'GreenRatio': GreenRatio, # 如果有的话
-    # 'Albedo': Albedo          # 如果有的话
+    'AAR': AAR,
+    'xAAR': xAAR,
+    'yAAR': yAAR,
+    'BESA': BESA,
+    'SF': SF,
+    'APR': APR
 }
 
 # 转换为 DataFrame
@@ -126,7 +137,7 @@ input_df = pd.DataFrame([input_data])
 
 if predict_btn:
     with st.spinner('Calculating physics...'):
-        time.sleep(0.5) # 模拟一点计算延迟，增加交互感
+        time.sleep(0.5) # 模拟计算延迟
 
         try:
             # 1. 数据标准化
@@ -138,21 +149,24 @@ if predict_btn:
             # 3. 逆标准化 (还原为真实物理量)
             pred_original = scaler_y.inverse_transform(pred_scaled)
             
-            # 提取结果 (假设输出顺序是: [0]=UTCI, [1]=ATEC)
-            # 如果您的输出顺序不一样，请在这里交换索引
-            utci_val = pred_original[0][0]
-            atec_val = pred_original[0][1]
+            # ---------------------------------------------------------
+            # ⚠️【关键修改】：根据您提供的 Index(['aveUTCI', 'stdUTCI', 'ATEC']) 映射结果
+            # ---------------------------------------------------------
+            utci_val = pred_original[0][0]      # Index 0: aveUTCI
+            std_utci_val = pred_original[0][1]  # Index 1: stdUTCI (可选展示)
+            atec_val = pred_original[0][2]      # Index 2: ATEC
+            # ---------------------------------------------------------
 
             # --- 结果展示区 ---
             st.subheader("📊 Simulation Results")
             
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3) # 增加一列展示 stdUTCI
 
-            # 结果 1: 热舒适度 (UTCI)
+            # 结果 1: 热舒适度 (aveUTCI)
             with col1:
                 # 动态颜色判定
                 if utci_val > 32:
-                    status_color = "inverse" # 红色/强调
+                    status_color = "inverse"
                     status_msg = "🔥 High Heat Stress"
                 elif utci_val < 20:
                     status_color = "normal"
@@ -167,12 +181,23 @@ if predict_btn:
                     delta=status_msg,
                     delta_color=status_color
                 )
-                st.progress(min(max((utci_val + 20) / 70, 0.0), 1.0)) # 简单的进度条可视化
+                # 简单的进度条可视化 (假设范围 20-40)
+                st.progress(min(max((utci_val - 20) / 20, 0.0), 1.0))
 
-            # 结果 2: 能耗 (ATEC)
+            # 结果 2: 舒适度波动 (stdUTCI) - 新增
             with col2:
+                st.metric(
+                    label="📉 Temp Variation (stdUTCI)",
+                    value=f"{std_utci_val:.2f}",
+                    help="Standard Deviation of UTCI. Lower means more uniform comfort."
+                )
+                # 简单的进度条 (假设范围 0-5)
+                st.progress(min(std_utci_val / 5.0, 1.0))
+
+            # 结果 3: 能耗 (ATEC)
+            with col3:
                 # 动态逻辑
-                if atec_val > 150: # 假设阈值，需根据您数据调整
+                if atec_val > 150: 
                     energy_msg = "⚠️ High Consumption"
                     energy_color = "inverse"
                 else:
@@ -185,23 +210,30 @@ if predict_btn:
                     delta=energy_msg,
                     delta_color=energy_color
                 )
-                st.progress(min(atec_val / 300, 1.0)) # 假设最大能耗300
+                # 简单的进度条 (假设最大能耗 300)
+                st.progress(min(atec_val / 300, 1.0))
 
             # --- 智能建议区 ---
             st.divider()
             st.subheader("💡 AI Design Analysis")
             
-            # 这里可以写一些简单的基于规则的逻辑
             suggestions = []
             
+            # 逻辑 1: 舒适度与 SVF
             if utci_val > 30 and input_data['SVF'] < 0.3:
                 suggestions.append(f"• The UTCI is high ({utci_val:.1f}°C). Considering the low Sky View Factor ({input_data['SVF']}), try **increasing street openness** to facilitate heat dissipation.")
             
+            # 逻辑 2: 舒适度与遮阳
             if utci_val > 30 and input_data['SVF'] > 0.7:
-                suggestions.append(f"• High solar exposure detected (SVF {input_data['SVF']}). Consider **adding shading devices or trees** to reduce direct radiation.")
+                suggestions.append(f"• High solar exposure detected (SVF {input_data['SVF']}). Consider **reducing SVF** (adding shading) to lower the temperature.")
                 
+            # 逻辑 3: 能耗与密度 (注意这里改成了 FAR)
             if atec_val > 140 and input_data['FAR'] > 4.0:
                 suggestions.append(f"• Energy consumption is high due to extreme density (FAR {input_data['FAR']}). Ensure sufficient spacing between buildings.")
+
+            # 逻辑 4: 覆盖率 (注意这里改成了 BCR)
+            if input_data['BCR'] > 0.6 and std_utci_val > 2.0:
+                 suggestions.append(f"• High Building Coverage ({input_data['BCR']}) might be causing uneven thermal distribution (High stdUTCI).")
 
             if not suggestions:
                 st.info("The current design configuration seems balanced based on the model's training data.")
@@ -217,10 +249,9 @@ else:
     # 初始状态提示
     st.info("👈 Please adjust parameters in the sidebar and click **'Run Simulation'** to see results.")
     
-    # 显示示例数据分布（可选，增加专业感）
     with st.expander("ℹ️ About the Model"):
         st.write("""
-        This model was trained on a dataset of urban morphologies using MLP Regressor (R² ≈ 0.94).
-        - **Inputs:** Geometric and density parameters.
-        - **Outputs:** Microclimate comfort metrics and building energy use.
+        This model was trained on a dataset of urban morphologies using MLP Regressor.
+        - **Inputs:** 14 morphological parameters (FAR, BCR, SVF, etc.)
+        - **Outputs:** aveUTCI, stdUTCI, and ATEC.
         """)

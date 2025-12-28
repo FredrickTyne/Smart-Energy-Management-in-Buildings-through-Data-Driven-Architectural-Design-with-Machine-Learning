@@ -55,7 +55,6 @@ model, scaler_x, scaler_y = load_toolkit()
 # ==========================================
 with st.sidebar:
     st.title("🎛️ Design Parameters")
-    st.info("Ranges calibrated to Singapore dataset.")
     
     # --- Group 1: Density & Massing ---
     st.subheader("1. Density & Massing")
@@ -253,4 +252,5 @@ else:
         
         *Even small changes in the decimal points represent significant physical impacts in this context.*
         """)
+
 

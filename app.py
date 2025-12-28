@@ -5,7 +5,7 @@ import joblib
 import time
 
 # ==========================================
-# 1. 页面配置 (Page Configuration)
+# 1. 页面配置
 # ==========================================
 st.set_page_config(
     page_title="Urban Design AI Assistant",
@@ -14,12 +14,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 自定义 CSS 以实现更现代的视觉效果
+# CSS 美化
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
-    }
     .stMetric {
         background-color: #ffffff;
         border: 1px solid #e6e6e6;
@@ -27,30 +24,22 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    h1 {
-        color: #2c3e50;
-    }
-    h2, h3 {
-        color: #34495e;
-    }
     .stButton>button {
         width: 100%;
         border-radius: 8px;
         height: 50px;
         font-weight: bold;
+        background-color: #FF4B4B; 
+        color: white;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 模型加载 (Model Loading)
+# 2. 模型加载
 # ==========================================
 @st.cache_resource
 def load_toolkit():
-    """
-    加载训练好的模型和标准化器。
-    使用了缓存装饰器，避免每次交互都重新加载文件。
-    """
     try:
         model = joblib.load('best_model_mlp.pkl')
         scaler_x = joblib.load('scaler_X.pkl')
@@ -62,55 +51,68 @@ def load_toolkit():
 model, scaler_x, scaler_y = load_toolkit()
 
 # ==========================================
-# 3. 侧边栏：参数输入 (Sidebar Inputs)
+# 3. 侧边栏：精准参数输入
 # ==========================================
 with st.sidebar:
     st.title("🎛️ Design Parameters")
-    st.markdown("Adjust parameters to simulate:")
+    st.info("Ranges calibrated to Singapore dataset.")
     
-    # 分组 1: 形态与密度 (Morphology)
-    st.subheader("1. Morphology & Density")
-    FAR = st.slider('FAR (Floor Area Ratio)', 0.0, 10.0, 2.5)
-    BCR = st.slider('BCR (Building Coverage)', 0.0, 1.0, 0.4)
-    OSR = st.slider('OSR (Open Space Ratio)', 0.0, 1.0, 0.3)
-    AH = st.slider('AH (Ave Height)', 0.0, 100.0, 30.0)
-    SD = st.slider('SD (Standard Deviation of Height)', 0.0, 50.0, 10.0)
+    # --- Group 1: Density & Massing ---
+    st.subheader("1. Density & Massing")
+    # FAR: Min 4.0 - Max 6.99
+    FAR = st.slider('FAR (Floor Area Ratio)', 4.0, 7.0, 5.5, step=0.1)
+    # BCR: Min 0.08 - Max 0.18 (Very sensitive!)
+    BCR = st.slider('BCR (Building Coverage)', 0.05, 0.20, 0.12, step=0.01)
+    # OSR: Min 0.12 - Max 0.23
+    OSR = st.slider('OSR (Open Space Ratio)', 0.10, 0.25, 0.16, step=0.01)
     
-    # 分组 2: 街道与朝向 (Street & Orientation)
-    st.subheader("2. Street & Orientation")
-    OR = st.slider('OR (Orientation)', 0.0, 180.0, 45.0, help="Street Orientation in degrees")
-    SVF = st.slider('SVF (Sky View Factor)', 0.0, 1.0, 0.5)
-    AS = st.slider('AS (Aspect Ratio)', 0.0, 5.0, 1.5)
+    # --- Group 2: Height & Form ---
+    st.subheader("2. Height & Form")
+    # AH: Min 99 - Max 231
+    AH = st.slider('AH (Ave Height)', 90.0, 240.0, 162.0, step=1.0)
+    # SD: Min 39 - Max 170
+    SD = st.slider('SD (Height Std Dev)', 35.0, 175.0, 107.0, step=1.0)
+    # BESA: Min 1.3 - Max 2.5 (CRITICAL FIX!)
+    BESA = st.slider('BESA (Energy Surface)', 1.0, 3.0, 1.86, step=0.1)
     
-    # 分组 3: 建筑表面与其他 (Facade & Others)
-    st.subheader("3. Facade & Advanced Metrics")
-    AAR = st.slider('AAR (Ave Aspect Ratio)', 0.0, 5.0, 1.0)
-    xAAR = st.slider('xAAR (Aspect Ratio X)', 0.0, 5.0, 1.0)
-    yAAR = st.slider('yAAR (Aspect Ratio Y)', 0.0, 5.0, 1.0)
-    BESA = st.slider('BESA (Building Energy Surface)', 0.0, 5000.0, 1000.0)
-    SF = st.slider('SF (Shape Factor)', 0.0, 1.0, 0.5)
-    APR = st.slider('APR (Area Perimeter Ratio)', 0.0, 50.0, 10.0)
+    # --- Group 3: Street & Orientation ---
+    st.subheader("3. Orientation & Sky")
+    # OR: Min -45 - Max 45
+    OR = st.slider('OR (Orientation)', -45.0, 45.0, 0.0, step=5.0)
+    # SVF: Min 0.45 - Max 0.68
+    SVF = st.slider('SVF (Sky View Factor)', 0.40, 0.70, 0.55, step=0.01)
+    # AS: Min 25 - Max 66
+    AS = st.slider('AS (Aspect Ratio)', 20.0, 70.0, 45.0, step=1.0)
+
+    # --- Group 4: Advanced Geometry ---
+    st.subheader("4. Advanced Geometry")
+    # AAR: Min 1.23 - Max 2.78
+    AAR = st.slider('AAR (Ave Aspect Ratio)', 1.0, 3.0, 1.92, step=0.1)
+    # xAAR: Min 0.9 - Max 2.5
+    xAAR = st.slider('xAAR (X-Aspect Ratio)', 0.8, 2.6, 1.63, step=0.1)
+    # yAAR: Min 1.22 - Max 3.46
+    yAAR = st.slider('yAAR (Y-Aspect Ratio)', 1.0, 3.5, 2.21, step=0.1)
+    # SF: Min 0.08 - Max 0.12 (Very small range)
+    SF = st.slider('SF (Shape Factor)', 0.05, 0.15, 0.09, step=0.01)
+    # APR: Min 8.77 - Max 13.83
+    APR = st.slider('APR (Area Perim Ratio)', 8.0, 14.0, 11.3, step=0.1)
 
     st.markdown("---")
     predict_btn = st.button("🚀 Run Simulation")
 
 # ==========================================
-# 4. 主界面逻辑 (Main Interface)
+# 4. 主界面逻辑
 # ==========================================
 
-# 标题区域
 st.title("🏙️ AI-Driven Urban Design Support System")
-st.markdown("### Real-time Prediction of Thermal Comfort & Energy Efficiency")
-st.markdown("This tool utilizes a **Multi-Layer Perceptron (MLP)** neural network to assist architects in early-stage decision making.")
-st.divider()
+st.markdown("### Real-time Prediction: Thermal Comfort & Energy")
 
-# 检查模型是否加载成功
+# Check Model
 if model is None:
-    st.error("❌ Model files not found! Please ensure 'best_model_mlp.pkl', 'scaler_X.pkl', and 'scaler_y.pkl' are in the same directory.")
+    st.error("❌ Model files not found! Please check .pkl files.")
     st.stop()
 
-# 收集输入数据
-# ⚠️【重要】：顺序必须严格对应 X_train 的列顺序！
+# 收集输入 (顺序严格匹配 X_train)
 input_data = {
     'FAR': FAR,
     'BCR': BCR,
@@ -123,135 +125,115 @@ input_data = {
     'AAR': AAR,
     'xAAR': xAAR,
     'yAAR': yAAR,
-    'BESA': BESA,
+    'BESA': BESA, # 关键修复
     'SF': SF,
     'APR': APR
 }
-
-# 转换为 DataFrame
 input_df = pd.DataFrame([input_data])
 
 # ==========================================
-# 5. 预测与结果展示 (Prediction & Visualization)
+# 5. 预测与结果 (结果精度优化)
 # ==========================================
 
 if predict_btn:
-    with st.spinner('Calculating physics...'):
-        time.sleep(0.5) # 模拟计算延迟
+    with st.spinner('Calculating...'):
+        time.sleep(0.3) 
 
         try:
-            # 1. 数据标准化
+            # 预测流程
             input_scaled = scaler_x.transform(input_df)
-            
-            # 2. 模型预测
             pred_scaled = model.predict(input_scaled)
-            
-            # 3. 逆标准化 (还原为真实物理量)
             pred_original = scaler_y.inverse_transform(pred_scaled)
             
-            # ---------------------------------------------------------
-            # ⚠️【关键修改】：根据您提供的 Index(['aveUTCI', 'stdUTCI', 'ATEC']) 映射结果
-            # ---------------------------------------------------------
-            utci_val = pred_original[0][0]      # Index 0: aveUTCI
-            std_utci_val = pred_original[0][1]  # Index 1: stdUTCI (可选展示)
-            atec_val = pred_original[0][2]      # Index 2: ATEC
-            # ---------------------------------------------------------
+            # 提取结果 [aveUTCI, stdUTCI, ATEC]
+            utci_val = pred_original[0][0]
+            std_utci_val = pred_original[0][1]
+            atec_val = pred_original[0][2]
 
             # --- 结果展示区 ---
             st.subheader("📊 Simulation Results")
-            
-            col1, col2, col3 = st.columns(3) # 增加一列展示 stdUTCI
+            col1, col2, col3 = st.columns(3)
 
-            # 结果 1: 热舒适度 (aveUTCI)
+            # UTCI (范围 32.3 - 32.8) -> 这是一个极热的环境
             with col1:
-                # 动态颜色判定
-                if utci_val > 32:
+                # 调整了阈值，因为数据本身就在 32 以上
+                if utci_val > 32.6:
+                    status_msg = "🔥 Extreme Heat"
                     status_color = "inverse"
-                    status_msg = "🔥 High Heat Stress"
-                elif utci_val < 20:
-                    status_color = "normal"
-                    status_msg = "❄️ Cold Stress"
                 else:
-                    status_color = "normal" 
-                    status_msg = "✅ Comfortable"
+                    status_msg = "🟠 High Heat"
+                    status_color = "normal"
                 
                 st.metric(
-                    label="🌡️ Thermal Comfort (aveUTCI)",
-                    value=f"{utci_val:.2f} °C",
+                    label="🌡️ aveUTCI (Comfort)",
+                    value=f"{utci_val:.4f} °C", # 增加小数位以便看到变化
                     delta=status_msg,
                     delta_color=status_color
                 )
-                # 简单的进度条可视化 (假设范围 20-40)
-                st.progress(min(max((utci_val - 20) / 20, 0.0), 1.0))
+                # 进度条基于 min/max 归一化
+                st.progress((utci_val - 32.0) / 1.5)
 
-            # 结果 2: 舒适度波动 (stdUTCI) - 新增
+            # stdUTCI
             with col2:
                 st.metric(
-                    label="📉 Temp Variation (stdUTCI)",
-                    value=f"{std_utci_val:.2f}",
-                    help="Standard Deviation of UTCI. Lower means more uniform comfort."
+                    label="📉 stdUTCI (Variation)",
+                    value=f"{std_utci_val:.4f}", # 增加小数位
+                    help="Lower is better (more uniform)"
                 )
-                # 简单的进度条 (假设范围 0-5)
-                st.progress(min(std_utci_val / 5.0, 1.0))
+                st.progress(std_utci_val / 6.0)
 
-            # 结果 3: 能耗 (ATEC)
+            # ATEC (范围 111 - 113)
             with col3:
-                # 动态逻辑
-                if atec_val > 150: 
-                    energy_msg = "⚠️ High Consumption"
-                    energy_color = "inverse"
+                if atec_val > 113.0:
+                    e_msg = "⚠️ High Energy"
+                    e_color = "inverse"
                 else:
-                    energy_msg = "🌿 Energy Efficient"
-                    energy_color = "normal"
+                    e_msg = "✅ Efficient"
+                    e_color = "normal"
 
                 st.metric(
-                    label="⚡ Energy Consumption (ATEC)",
-                    value=f"{atec_val:.2f} kWh/m²",
-                    delta=energy_msg,
-                    delta_color=energy_color
+                    label="⚡ ATEC (Energy)",
+                    value=f"{atec_val:.4f}", # 增加小数位
+                    delta=e_msg,
+                    delta_color=e_color
                 )
-                # 简单的进度条 (假设最大能耗 300)
-                st.progress(min(atec_val / 300, 1.0))
+                st.progress((atec_val - 110) / 5.0)
 
-            # --- 智能建议区 ---
+            # --- 调试信息 (可选，如果不放心可以取消注释) ---
+            # st.write("Debug - Raw Input:", input_df)
+
+            # --- 智能建议 ---
             st.divider()
-            st.subheader("💡 AI Design Analysis")
+            st.subheader("💡 AI Diagnostics")
             
             suggestions = []
             
-            # 逻辑 1: 舒适度与 SVF
-            if utci_val > 30 and input_data['SVF'] < 0.3:
-                suggestions.append(f"• The UTCI is high ({utci_val:.1f}°C). Considering the low Sky View Factor ({input_data['SVF']}), try **increasing street openness** to facilitate heat dissipation.")
+            # 基于数据分布的建议逻辑
+            if utci_val > 32.6:
+                suggestions.append(f"• **High Heat Stress ({utci_val:.2f}°C):** Your design is in the upper percentile of heat stress. Consider increasing street ventilation (lower 'AS' or adjust 'OR').")
             
-            # 逻辑 2: 舒适度与遮阳
-            if utci_val > 30 and input_data['SVF'] > 0.7:
-                suggestions.append(f"• High solar exposure detected (SVF {input_data['SVF']}). Consider **reducing SVF** (adding shading) to lower the temperature.")
-                
-            # 逻辑 3: 能耗与密度 (注意这里改成了 FAR)
-            if atec_val > 140 and input_data['FAR'] > 4.0:
-                suggestions.append(f"• Energy consumption is high due to extreme density (FAR {input_data['FAR']}). Ensure sufficient spacing between buildings.")
+            if atec_val > 113.2:
+                suggestions.append(f"• **Energy Intensity:** ATEC is high ({atec_val:.2f}). Check if 'AH' (Height) or 'BESA' is too high.")
 
-            # 逻辑 4: 覆盖率 (注意这里改成了 BCR)
-            if input_data['BCR'] > 0.6 and std_utci_val > 2.0:
-                 suggestions.append(f"• High Building Coverage ({input_data['BCR']}) might be causing uneven thermal distribution (High stdUTCI).")
+            if SVF < 0.5 and utci_val > 32.5:
+                suggestions.append("• **Low Sky View:** Low SVF is trapping heat. Try increasing setbacks to let heat escape.")
 
             if not suggestions:
-                st.info("The current design configuration seems balanced based on the model's training data.")
+                st.success("✅ The design performs within the optimal range of the current dataset.")
             else:
                 for s in suggestions:
                     st.warning(s)
 
         except Exception as e:
-            st.error(f"An error occurred during prediction: {e}")
-            st.warning("Hint: Check if the feature names in 'app.py' match exactly with 'scaler_X.pkl'.")
+            st.error(f"Error: {e}")
 
 else:
-    # 初始状态提示
-    st.info("👈 Please adjust parameters in the sidebar and click **'Run Simulation'** to see results.")
-    
-    with st.expander("ℹ️ About the Model"):
+    st.info("👈 Please adjust parameters on the sidebar and click **'Run Simulation'**.")
+    with st.expander("ℹ️ Dataset Context"):
         st.write("""
-        This model was trained on a dataset of urban morphologies using MLP Regressor.
-        - **Inputs:** 14 morphological parameters (FAR, BCR, SVF, etc.)
-        - **Outputs:** aveUTCI, stdUTCI, and ATEC.
+        **Note on Data Range:** This model is trained on a highly specific high-density urban dataset.
+        - **aveUTCI** typically varies between **32.3°C and 32.8°C**.
+        - **ATEC** typically varies between **111 and 114**.
+        
+        *Even small changes in the decimal points represent significant physical impacts in this context.*
         """)
